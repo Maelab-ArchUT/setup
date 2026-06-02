@@ -6,6 +6,7 @@
 
 ## 目次
 
+0. [全体像: 何を入れて何がどうつながるか](#0-全体像-何を入れて何がどうつながるか)
 1. [事前準備と前提](#1-事前準備と前提)
 2. [WSL2 + Ubuntu のインストール](#2-wsl2--ubuntu-のインストール)
 3. [Ubuntu 初期セットアップ](#3-ubuntu-初期セットアップ)
@@ -15,6 +16,68 @@
 7. [VS Code から WSL に接続して作業を開始](#7-vs-code-から-wsl-に接続して作業を開始)
 8. [付録: トラブルシューティング](#8-付録-トラブルシューティング)
 9. [構築完了後: 研究室ツールに触れる](#9-構築完了後-研究室ツールに触れる)
+
+---
+
+## 0. 全体像: 何を入れて何がどうつながるか
+
+このマニュアルでは、Windows 11 の上に Linux 環境 (WSL2) を作り、その中に開発の中心となる
+ツールを積み上げます。下の図は「何の上に何が乗るか」「どこと通信するか」を表します。
+
+```mermaid
+flowchart TB
+    subgraph WIN["Windows 11 (ホスト OS)"]
+        VSCODE["VS Code 本体<br/>+ WSL 拡張"]
+        BROWSER["ブラウザ<br/>(認証用)"]
+    end
+
+    subgraph WSL["WSL2 / Ubuntu 24.04 (Linux 環境)"]
+        direction TB
+        NVM["nvm<br/>(Node バージョン管理)"]
+        NODE["Node.js + npm"]
+        CLAUDE["Claude Code (claude)<br/>AI 開発アシスタント"]
+        GH["GitHub CLI (gh)<br/>+ git"]
+        WORK["作業ファイル (~/ 配下)"]
+
+        NVM --> NODE
+        NODE --> CLAUDE
+        CLAUDE -.操作.-> WORK
+        GH -.操作.-> WORK
+    end
+
+    subgraph CLOUD["クラウド (インターネット)"]
+        ANTHROPIC["Anthropic<br/>(Claude のモデル)"]
+        GITHUB["GitHub<br/>(リポジトリ置き場)"]
+    end
+
+    VSCODE -->|統合ターミナルで接続| WSL
+    CLAUDE <-->|API| ANTHROPIC
+    GH <-->|push / pull / clone| GITHUB
+    BROWSER -.OAuth 認証.-> ANTHROPIC
+    BROWSER -.デバイス認証.-> GITHUB
+```
+
+要点:
+
+- **VS Code は Windows 側、開発ツールは WSL 側**。VS Code は WSL 拡張で WSL 内のシェルに
+  つながり、その統合ターミナルから `claude` などを動かす (本体を二重に入れる必要はない)。
+- **積み上げの順序**: WSL2 → Node.js (nvm 経由) → Claude Code、という依存がある。
+  Claude Code は Node 上で動くので、先に Node が要る。
+- **gh と git** はクラウドの GitHub とやり取りする窓口。認証だけ最初にブラウザで通す。
+
+### 各ツールの役割
+
+| ツール | 動く場所 | 役割 | 何に必要か |
+|--------|----------|------|-----------|
+| **WSL2 / Ubuntu** | Windows 上 | Linux 環境そのもの。以降のツールはすべてこの中に入る | 全ての土台 |
+| **nvm** | WSL 内 | Node.js のバージョン管理。`apt` で入れるより切り替えが楽 | Node.js を入れるため |
+| **Node.js + npm** | WSL 内 | JavaScript 実行環境とパッケージ管理。Claude Code の動作基盤 | Claude Code を動かすため |
+| **Claude Code** (`claude`) | WSL 内 | 対話しながらコード編集・コマンド実行を行う AI アシスタント。以降の作業の中心 | 本マニュアルの主目的 |
+| **GitHub CLI** (`gh`) + **git** | WSL 内 | リポジトリの clone・push・pull。`gh` が認証を肩代わりする | 研究室リポジトリの取得・共有 |
+| **VS Code** + **WSL 拡張** | Windows 側 | エディタ。WSL に接続して WSL 内のファイルを編集、統合ターミナルで `claude` を起動 | 作業の操作画面 |
+
+> このマニュアルは上から順に、土台から積み上げる構成になっています。各セクションが図の
+> どの部分を入れているかを意識すると、今どこを作業しているか迷いません。
 
 ---
 
@@ -496,14 +559,13 @@ claude
 
 セクション 5 で認証済みなので、再認証なしでそのまま起動します。
 
-### 7-5. 推奨追加拡張機能 (任意)
+### 7-5. 拡張機能について
 
-WSL 接続後の VS Code に、必要に応じて以下を入れておくと作業が捗ります:
+このセットアップで VS Code に必須なのは **WSL** 拡張 (7-1) だけです。これで WSL 内の
+シェルにつながり、統合ターミナルから `claude` を実行できます。
 
-- **Python** (Microsoft) — Python 開発全般
-- **Pylance** — Python の型チェック・補完
-- **Jupyter** — ノートブック作業用
-- **Claude Code 拡張機能** — VS Code 内での統合 UI
+Python の補完やノートブックなど、各自の作業に応じた拡張は必要になった時点で入れれば
+十分です。最初から揃える必要はありません。
 
 ---
 
